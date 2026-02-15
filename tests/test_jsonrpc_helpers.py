@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from resonance.web.jsonrpc_helpers import build_player_item, is_audio_player
+from resonance.web.jsonrpc_helpers import build_player_item, is_audio_player, build_plugin_item
 
 
 class _DeviceType:
@@ -44,6 +44,18 @@ class _PlayerWithOverride(_Player):
         self.is_player = is_player
 
 
+class _PluginManifest:
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        description: str
+    ) -> None:
+        self.name = name
+        self.version = version
+        self.description = description
+
+
 def test_build_player_item_marks_controller_as_non_audio_player() -> None:
     player = _Player("00:11:22:33:44:55", "Controller", "CONTROLLER")
 
@@ -61,6 +73,13 @@ def test_build_player_item_marks_regular_player_as_audio_player() -> None:
 
     assert item["model"] == "squeezeplay"
     assert item["isplayer"] == 1
+
+
+def test_build_plugin_item() -> None:
+    expected = "name"
+    pm = _PluginManifest(expected, 'version', 'description')
+    item = build_plugin_item(pm)
+    assert item["name"] == expected
 
 
 def test_is_audio_player_prefers_explicit_override_false() -> None:

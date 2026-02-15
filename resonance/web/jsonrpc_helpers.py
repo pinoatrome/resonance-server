@@ -751,6 +751,22 @@ def build_player_item(player: Any) -> dict[str, Any]:
         "power": 1,
     }
 
+
+def build_plugin_item(plugin: Any) -> dict[str, Any]:
+    """
+    Build a plugin loop item from a PluginManifest object.
+
+    Args:
+        plugin: PluginManifest instance with name, version, etc.
+
+    Returns:
+        a dictionary with plugin info
+    """
+    return {
+        "name": plugin.name,
+        "version": plugin.version,
+        "description": plugin.description
+    }
 # =============================================================================
 # Response Building
 # =============================================================================

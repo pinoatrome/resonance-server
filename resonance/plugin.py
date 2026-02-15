@@ -182,6 +182,7 @@ class PluginContext:
         _route_register: Any = None,
         _content_registry: ContentProviderRegistry | None = None,
         data_dir: Path | None = None,
+        server_info: dict[str, Any] | None = None
     ) -> None:
         self.plugin_id = plugin_id
         """Unique identifier for this plugin (matches manifest *name*)."""
@@ -200,6 +201,9 @@ class PluginContext:
 
         self.data_dir: Path = data_dir or Path(f"data/plugins/{plugin_id}")
         """Per-plugin data directory (created automatically if needed)."""
+
+        self.server_info: dict[str, Any] = server_info
+        """Networking info about the server instance (optional)."""
 
         # Internal callbacks wired by PluginManager ---------------------------
         self._command_register = _command_register

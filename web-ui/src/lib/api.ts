@@ -81,6 +81,12 @@ export interface PlayerStatus {
   playlistTracks: number;
 }
 
+export interface PluginInfo {
+  name: string;
+  version: string;
+  description: string;
+}
+
 export interface SearchResults {
   artists: Artist[];
   albums: Album[];
@@ -270,7 +276,7 @@ interface JsonRpcResponse<T = unknown> {
 // =============================================================================
 
 class ResonanceAPI {
-  private baseUrl: string;
+  protected readonly baseUrl: string;
   private requestId = 0;
 
   constructor(baseUrl = "") {
@@ -1207,6 +1213,18 @@ class ResonanceAPI {
     } catch {
       return false;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plugins (REST API)
+  // ---------------------------------------------------------------------------
+
+  async getPlugins(): Promise<PluginInfo[]> {
+    const response = await fetch(`${this.baseUrl}/api/plugins`);
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+    return response.json();
   }
 
   // ---------------------------------------------------------------------------

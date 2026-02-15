@@ -183,6 +183,7 @@ class PluginManager:
         command_unregister: Callable[[str], None] | None = None,
         route_register: Callable[[APIRouter], None] | None = None,
         content_registry: ContentProviderRegistry | None = None,
+        server_info: dict[str, Any] | None = None,
     ) -> int:
         """Call ``setup()`` on every loaded plugin.
 
@@ -199,6 +200,7 @@ class PluginManager:
             route_register: Callback to mount a FastAPI router.
             content_registry: Optional content-provider registry for plugins
                 that supply external audio sources (Radio, Podcasts, etc.).
+            server_info: Networking info about the server instance (Optional).
 
         Returns:
             Number of successfully started plugins.
@@ -221,6 +223,7 @@ class PluginManager:
                 _route_register=route_register,
                 _content_registry=content_registry,
                 data_dir=Path(f"data/plugins/{name}"),
+                server_info=server_info,
             )
             loaded.context = ctx
 
@@ -301,6 +304,17 @@ class PluginManager:
         """Return the context for a started plugin, or ``None``."""
         loaded = self.plugins.get(name)
         return loaded.context if loaded else None
+
+    def get_all(self) -> list[PluginManifest]:
+        """
+        Get a list of plugin manifests og all active plugins.
+
+        Returns:
+            A list of plugin manifests.
+        """
+        return [
+            lp.manifest for lp in self.plugins.values() if lp.started
+        ]
 
     # -- Internal helpers ----------------------------------------------------
 

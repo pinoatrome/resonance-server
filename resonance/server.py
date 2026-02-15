@@ -6,6 +6,7 @@ import os
 import signal
 import uuid
 from pathlib import Path
+from typing import Any
 
 from resonance.content_provider import ContentProviderRegistry
 from resonance.core.alarm_runtime import AlarmRuntime
@@ -288,6 +289,7 @@ class ResonanceServer:
             player_registry=self.player_registry,
             music_library=self.music_library,
             playlist_manager=self.playlist_manager,
+            plugin_manager=self.plugin_manager,
             streaming_server=self.streaming_server,
             artwork_manager=self.artwork_manager,
             slimproto=self.slimproto,
@@ -384,6 +386,7 @@ class ResonanceServer:
             command_unregister=unregister_command,
             route_register=lambda r: self.web_server.app.include_router(r) if self.web_server else None,
             content_registry=self.content_registry,
+            server_info=self.info,
         )
 
         # Notify listeners that the server is fully operational
@@ -485,6 +488,14 @@ class ResonanceServer:
     def is_running(self) -> bool:
         """Check if the server is currently running."""
         return self._running
+
+    @property
+    def info(self) -> dict[str, Any]:
+        """ some networking info about the server """
+        return {
+            'host': self.host,
+            'port': self.port
+        }
 
     @property
     def connected_players(self) -> int:

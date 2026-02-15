@@ -61,7 +61,7 @@ from resonance.protocol.commands import (
 logger = logging.getLogger(__name__)
 
 # When enabled, outgoing frames include a compact hexdump for easier debugging.
-OUTGOING_FRAME_DEBUG = True
+OUTGOING_FRAME_DEBUG = False
 OUTGOING_FRAME_HEXDUMP_BYTES = 64
 
 # NOTE (SlimServer semantics):

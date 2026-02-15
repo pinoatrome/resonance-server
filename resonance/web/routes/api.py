@@ -17,11 +17,12 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, HTTPException, Request
 
 from resonance.web.handlers.status import _lms_song_elapsed_seconds
-from resonance.web.jsonrpc_helpers import build_player_item, to_dict
+from resonance.web.jsonrpc_helpers import build_player_item, build_plugin_item, to_dict
 
 if TYPE_CHECKING:
     from resonance.core.library import MusicLibrary
     from resonance.core.playlist import PlaylistManager
+    from resonance.plugin_manager import PluginManager
     from resonance.player.registry import PlayerRegistry
     from resonance.streaming.server import StreamingServer
 
@@ -33,6 +34,7 @@ router = APIRouter(tags=["api"])
 _music_library: MusicLibrary | None = None
 _player_registry: PlayerRegistry | None = None
 _playlist_manager: PlaylistManager | None = None
+_plugin_manager: PluginManager | None = None
 _streaming_server: StreamingServer | None = None
 
 
@@ -41,6 +43,7 @@ def register_api_routes(
     music_library: MusicLibrary,
     player_registry: PlayerRegistry,
     playlist_manager: PlaylistManager | None = None,
+    plugin_manager: PluginManager | None = None,
     streaming_server: StreamingServer | None = None,
 ) -> None:
     """
@@ -51,12 +54,14 @@ def register_api_routes(
         music_library: MusicLibrary for browsing/search
         player_registry: PlayerRegistry for player info
         playlist_manager: Optional PlaylistManager
+        plugin_manager: Optional PluginManager
         streaming_server: Optional StreamingServer for start_offset lookup
     """
-    global _music_library, _player_registry, _playlist_manager, _streaming_server
+    global _music_library, _player_registry, _playlist_manager, _plugin_manager, _streaming_server
     _music_library = music_library
     _player_registry = player_registry
     _playlist_manager = playlist_manager
+    _plugin_manager = plugin_manager
     _streaming_server = streaming_server
     app.include_router(router)
 
@@ -236,6 +241,21 @@ async def debug_playlist(player_id: str) -> dict[str, Any]:
         "track_count": len(playlist),
         "tracks": tracks,
     }
+
+# =============================================================================
+# Plugin Endpoints
+# =============================================================================
+
+
+@router.get("/api/plugins")
+async def list_plugins() -> list[Any]:
+    """List all active plugins."""
+    if _plugin_manager is None:
+        raise HTTPException(status_code=503, detail="Server not initialized")
+
+    plugins = _plugin_manager.get_all()
+    plugins_list = [build_plugin_item(plugin) for plugin in plugins]
+    return plugins_list
 
 
 # =============================================================================

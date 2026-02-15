@@ -8,8 +8,9 @@
     Disc3,
     Users,
     X,
-    Radio,
+    Radio, Radar,
   } from "lucide-svelte";
+  import {api, type PluginInfo} from "$lib/api";
 
   // Navigation items configuration
   const mainNavItems = [
@@ -36,6 +37,9 @@
     },
   ] as const;
 
+  let plugins = $state<PluginInfo[] | null>(null);
+  let showRaopBridge = $state<boolean>();
+
   function handleNavigate(view: View) {
     uiStore.navigateTo(view);
     // Auto-close on mobile
@@ -43,6 +47,17 @@
       uiStore.setSidebarOpen(false);
     }
   }
+
+  async function loadPlugins() {
+      plugins = await api.getPlugins();
+      showRaopBridge = !!(plugins || []).find((info) => info.name === 'raopbridge');
+  }
+
+  $effect(() => {
+    if (!plugins) {
+      loadPlugins();
+    }
+  });
 </script>
 
 <!-- Mobile Backdrop -->
@@ -219,6 +234,33 @@
       />
       <span>Radio</span>
     </button>
+
+    {#if !!plugins}
+    <div class="my-4 border-t border-surface-1 mx-3 opacity-50"></div>
+    <!-- Plugins -->
+    <div
+      class="px-3 py-2 text-xs font-semibold text-overlay-0 uppercase tracking-wider mb-2"
+    >
+      Plugins
+    </div>
+      {#if showRaopBridge}
+    <button
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group
+			{uiStore.currentView === 'raopbridge'
+        ? 'bg-surface-0 text-accent dynamic-accent font-medium'
+        : 'text-overlay-1 hover:text-text hover:bg-surface-0'}"
+      onclick={() => handleNavigate("raopbridge")}
+    >
+      <Radar
+        size={20}
+        class="transition-colors {uiStore.currentView === 'raopbridge'
+          ? 'text-accent dynamic-accent'
+          : 'group-hover:text-text'}"
+      />
+      <span>Airplay bridge</span>
+    </button>
+      {/if}
+    {/if}
   </nav>
 
   <!-- Footer / Settings -->

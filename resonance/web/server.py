@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from resonance.core.artwork import ArtworkManager
     from resonance.core.library import MusicLibrary
     from resonance.core.playlist import PlaylistManager
+    from resonance.plugin_manager import PluginManager
     from resonance.player.registry import PlayerRegistry
     from resonance.protocol.slimproto import SlimprotoServer
     from resonance.streaming.server import StreamingServer
@@ -90,6 +91,7 @@ class WebServer:
         player_registry: PlayerRegistry,
         music_library: MusicLibrary,
         playlist_manager: PlaylistManager | None = None,
+        plugin_manager: PluginManager | None = None,
         streaming_server: StreamingServer | None = None,
         artwork_manager: ArtworkManager | None = None,
         slimproto: SlimprotoServer | None = None,
@@ -103,6 +105,7 @@ class WebServer:
             player_registry: Registry of connected players
             music_library: Music library for browsing/search
             playlist_manager: Optional playlist manager
+            plugin_manager: Optional plugin manager
             streaming_server: Optional streaming server for audio
             artwork_manager: Optional artwork extraction/caching
             slimproto: Optional Slimproto server for player control
@@ -113,6 +116,7 @@ class WebServer:
         self.player_registry = player_registry
         self.music_library = music_library
         self.playlist_manager = playlist_manager
+        self.plugin_manager = plugin_manager
         self.streaming_server = streaming_server
         self.artwork_manager = artwork_manager
         self.slimproto = slimproto
@@ -182,8 +186,6 @@ class WebServer:
         # Register routes
         self._register_routes()
 
-
-
     def _register_routes(self) -> None:
         """Register all routes with the FastAPI app."""
 
@@ -243,6 +245,7 @@ class WebServer:
             music_library=self.music_library,
             player_registry=self.player_registry,
             playlist_manager=self.playlist_manager,
+            plugin_manager=self.plugin_manager,
             streaming_server=self.streaming_server,
         )
 
