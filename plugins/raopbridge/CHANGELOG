@@ -1,0 +1,17 @@
+0.0.1
+ - dev 02
+    moved to plugin framework
+    added pytests
+    added squeeze2raop configuration
+    added raopbridge plugin preferences
+    added squeeze2raop executable
+    added pid file
+    added logging category and levels
+    added GNU General Public License, version 2
+    generate squeeze2raop config file in interactive mode
+    add plugin commands
+    add plugin settings view [TODO]
+    add plugin event subscriptions [TODO]
+
+ - dev 01
+    POC to use squeeze2raop pre-build native executable in python

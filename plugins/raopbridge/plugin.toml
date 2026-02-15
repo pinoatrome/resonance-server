@@ -1,0 +1,6 @@
+[plugin]
+name = "raopbridge"
+version = "0.0.1"
+description = "AirPlay Bridge plugin"
+author = "Pinoatrome"
+min_resonance_version = "0.0.1"
