@@ -9,8 +9,10 @@
     added logging category and levels
     added GNU General Public License, version 2
     generate squeeze2raop config file in interactive mode
-    add plugin commands
-    add plugin settings view [TODO]
+    add plugin commands and Rest API
+    add plugin settings view
+    add registered devices [WIP]
+    add device management [TODO]
     add plugin event subscriptions [TODO]
 
  - dev 01

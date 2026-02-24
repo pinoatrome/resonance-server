@@ -2,93 +2,88 @@
     // based on suggestions from:
     // Inclusive Components by Heydon Pickering https://inclusive-components.design/toggle-button/
     // On Designing and Building Toggle Switches by Sara Soueidan https://www.sarasoueidan.com/blog/toggle-switch-design/
-   /**
-    * @typedef {Object} Props
-    * @property {any} label - and this example by Scott O'hara https://codepen.io/scottohara/pen/zLZwNv
-    * @property {string} [design]
-    * @property {any} [options]
-    * @property {number} [fontSize]
-    * @property {string} [value]
-    */
+    /*
+        There are 3 usable layouts: inner, multi, slider (* default *)
+
+        <Switch bind:value={switchValue} label="Enable dark mode" design="inner" />
+        <p>
+            Switch is {switchValue}
+        </p>
+        <Switch bind:value={multiValue} label="Choose a theme" design="multi" options={['light', 'dark']} fontSize={12}/>
+        <p>
+            Switch is {multiValue}
+        </p>
+        <Switch bind:value={sliderValue} label="Enable dark mode" fontSize={24} design="slider" />
+        <p>
+            Switch is {sliderValue}
+        </p>
+     */
 
    /** @type {Props} */
    let {
-      label,
-      design = 'inner label',
-      options = [],
-      fontSize = 16,
-      value = $bindable('on')
+       label = null,
+       design = 'slider',
+       classes = '',
+       options = ['off', 'on'],
+       fontSize = 16,
+       value = $bindable<boolean>(),
+       disabled = false,
+       showValue = false,
+       onToggle = () => {}
    } = $props();
 
-    let checked = $state(true);
-
-
     const uniqueID = Math.floor(Math.random() * 100)
-
-    function handleClick(event: any){
-        const target = event.target
-
-        const state = target.getAttribute('aria-checked');
-
-        checked = state !== 'true';
-
-        value = !!checked ? 'on' : 'off'
-    }
-    const slugify = (str = "") => str.toLowerCase().replace(/ /g, "-").replace(/\./g, "");
-
 </script>
 
 {#if design === 'inner'}
-<div class="s s--inner">
+<div class="s s--inner {classes}">
     <span id={`switch-${uniqueID}`}>{label}</span>
     <button
+        disabled={disabled}
         role="switch"
-        aria-checked={checked}
+        aria-checked={value ? 'true' : 'false'}
         aria-labelledby={`switch-${uniqueID}`}
-        onclick={handleClick}>
-            <span>on</span>
-            <span>off</span>
+        onclick={() => onToggle()}>
+            <span>{options[1]}</span>
+            <span>{options[0]}</span>
     </button>
 </div>
-{:else if design === 'slider'}
-<div class="s s--slider" style="font-size:{fontSize}px">
-    <span id={`switch-${uniqueID}`}>{label}</span>
-    <button
-        role="switch"
-        aria-checked={checked}
-        aria-labelledby={`switch-${uniqueID}`}
-        onclick={handleClick}>
-    </button>
-</div>
-{:else}
-<div class="s s--multi">
+{:else if design === 'multi'}
+<div class="s s--multi {classes}">
     <div role='radiogroup'
-				 class="group-container"
-				 aria-labelledby={`label-${uniqueID}`}
-				 style="font-size:{fontSize}px"
-				 id={`group-${uniqueID}`}>
+         class="group-container"
+         aria-labelledby={`label-${uniqueID}`}
+         style="font-size:{fontSize}px"
+         id={`group-${uniqueID}`}>
     <div class='legend' id={`label-${uniqueID}`}>{label}</div>
         {#each options as option}
-            <input type="radio" id={`${option}-${uniqueID}`} value={option} bind:group={value}>
+            <input disabled={disabled} type="radio" id={`${option}-${uniqueID}`} value={option} bind:group={value}>
             <label for={`${option}-${uniqueID}`}>
                 {option}
             </label>
         {/each}
     </div>
 </div>
-
+{:else}
+<div class="s s--slider {classes}" style="font-size:{fontSize}px">
+    <span id={`switch-${uniqueID}`}>{label}</span>
+    <button
+        disabled={disabled}
+        role="switch"
+        aria-checked={!!value ? 'true' : 'false'}
+        aria-labelledby={`switch-${uniqueID}`}
+        onclick={() => onToggle()}>
+    </button>
+    <span class="legend">{#if showValue}{!value ? options[0] : options[1]}{/if}</span>
+</div>
 {/if}
 
 <style>
-			:root {
-		--accent-color: CornflowerBlue;
-		--gray: #ccc;
-	}
     /* Inner Design Option */
     .s--inner button {
         padding: 0.5em;
         background-color: #fff;
-        border: 1px solid var(--gray);
+        border: 1px solid var(--color-surface-0);
     }
     [role='switch'][aria-checked='true'] :first-child,
     [role='switch'][aria-checked='false'] :last-child {
@@ -100,50 +95,6 @@
         user-select: none;
         pointer-events:none;
         padding: 0.25em;
-    }
-
-    .s--inner button:focus {
-        outline: var(--accent-color) solid 1px;
-    }
-
-    /* Slider Design Option */
-
-    .s--slider {
-        display: flex;
-        align-items: center;
-    }
-
-    .s--slider button {
-        width: 3em;
-        height: 1.6em;
-        position: relative;
-        margin: 0 0 0 0.5em;
-        background: var(--gray);
-        border: none;
-    }
-
-    .s--slider button::before {
-        content: '';
-        position: absolute;
-        width: 1.3em;
-        height: 1.3em;
-        background: #fff;
-        top: 0.13em;
-        right: 1.5em;
-        transition: transform 0.3s;
-    }
-
-    .s--slider button[aria-checked='true']{
-        background-color: var(--accent-color)
-    }
-
-    .s--slider button[aria-checked='true']::before{
-        transform: translateX(1.3em);
-        transition: transform 0.3s;
-    }
-
-    .s--slider button:focus {
-        box-shadow: 0 0 0 1px var(--accent-color);
     }
 
     /* Multi Design Option */
@@ -189,8 +140,6 @@
         border-radius: 1.5em;
     }
 
-
-
     /* making the switch UI.  */
     .s--multi label:first-of-type:before,
     .s--multi label:first-of-type:after {
@@ -224,7 +173,7 @@
     }
 
     .s--multi input:first-of-type:checked ~ label:first-of-type:after {
-        background: var(--gray);
+        background: var(--color-surface-0);
     }
 
     .s--multi input:first-of-type:checked ~ label:first-of-type:before {
@@ -238,6 +187,67 @@
     .s--multi input:focus {
         box-shadow: 0 0 8px var(--accent-color);
         border-radius: 1.5em;
+    }
+
+    .s--inner button:focus {
+        outline: var(--accent-color) solid 1px;
+    }
+
+    /* Slider Design Option */
+
+    .s--slider {
+        display: flex;
+        align-items: center;
+    }
+
+    .s--slider button {
+        width: 3em;
+        height: 1.6em;
+        position: relative;
+        margin: 0 0 0 0.5em;
+        background: var(--color-surface-2);
+        border: none;
+        cursor: pointer;
+    }
+
+    .s--slider button::before {
+        content: '';
+        position: absolute;
+        width: 1.3em;
+        height: 1.3em;
+        background: #fff;
+        top: 0.13em;
+        right: 1.5em;
+        transition: transform 0.3s;
+    }
+
+    .s--slider button:disabled {
+        cursor: not-allowed;
+        background: var(--color-overlay-0);
+    }
+
+    .s--slider button[aria-checked='true'] {
+        background-color: var(--color-accent);
+    }
+
+    .s--slider button[aria-checked='true']:disabled {
+        background-color: var(--color-overlay-0);
+    }
+
+
+
+    .s--slider button[aria-checked='true']::before{
+        transform: translateX(1.3em);
+        transition: transform 0.3s;
+    }
+
+    .s--slider button:focus {
+        box-shadow: 0 0 0 1px var(--accent-color);
+    }
+
+    .s--slider .legend {
+        margin-left: 1.0em;
+        padding: 0.25em;
     }
 
     /* gravy */

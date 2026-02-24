@@ -9,16 +9,20 @@ from typing import Any
 import pytest
 import re
 from raopbridge.bridge import RaopBridge
+from raopbridge.config import RaopConfig, RaopDevice, parse_config
 
 
 @pytest.fixture
 def popen_factory():
     class MockPopen:
         def __init__(self, **kwargs):
-            self.kwargs=kwargs
+            self.kwargs = kwargs
 
         def kill(self) -> None:
             pass
+
+        def poll(self) -> None:
+            return self.kwargs.get('poll')
 
     def _make(**kwargs):
         return MockPopen(**kwargs)
@@ -32,14 +36,36 @@ def raop_bridge_factory(popen_factory):
         b_value = kwargs.pop('bin') if 'bin' in kwargs else 'squeeze2raop'
         i_value = kwargs.pop('interface') if 'interface' in kwargs else '127.0.0.1'
         dd_value = kwargs.pop('data_dir') if 'data_dir' in kwargs else '.'
+        aat_value = kwargs.pop('active_at_startup') if 'active_at_startup' in kwargs else _started
         instance = RaopBridge(
             bin=b_value,
             interface=i_value,
             data_dir=dd_value,
+            active_at_startup=aat_value,
             **kwargs
         )
         if _started and instance.active_at_startup:
             instance.bridge_process = popen_factory()
+        return instance
+
+    return _make
+
+
+@pytest.fixture
+def raop_device_factory(popen_factory):
+    def _make(**kwargs) -> RaopDevice:
+        udn = kwargs.pop('udn') if 'udn' in kwargs else 'udn'
+        name = kwargs.pop('name') if 'name' in kwargs else 'name'
+        friendly_name = kwargs.pop('friendly_name') if 'friendly_name' in kwargs else 'friendly_name'
+        mac = kwargs.pop('mac') if 'mac' in kwargs else 'aa:aa:d8:00:25:39'
+        enabled = kwargs.pop('enabled') if 'enabled' in kwargs else True
+        instance = RaopDevice(
+            udn=udn,
+            name=name,
+            friendly_name=friendly_name,
+            mac=mac,
+            enabled=enabled
+        )
         return instance
 
     return _make
@@ -54,6 +80,14 @@ def raw_config_factory():
             full_config = re.sub(f'<{key}>(.*)</{key}>', f'<{key}>{value}</{key}>', full_config)
         return full_config
 
+    return _make
+
+
+@pytest.fixture
+def raop_config_factory(raw_config_factory):
+    def _make(**kwargs) -> RaopConfig:
+        raw = raw_config_factory(**kwargs)
+        return parse_config(raw)
     return _make
 
 

@@ -4,7 +4,7 @@ import pytest
 from unittest import mock
 
 from raopbridge import (
-    cmd_config
+    raopbridge_cmd
 )
 
 import raopbridge as raopbridge_mod
@@ -17,7 +17,7 @@ class TestPluginCommandHandlers:
 
         raopbridge_mod._raop_bridge = raop_bridge_factory()
         with mock.patch.object(raopbridge_mod._raop_bridge, 'activate_bridge') as mocked:
-            result = await cmd_config(command_context_factory(), ['raopbridge', 'activate'])
+            result = await raopbridge_cmd(command_context_factory(), ['raopbridge', 'activate'])
             assert mocked.called
         assert 'error' not in result
 
@@ -26,7 +26,7 @@ class TestPluginCommandHandlers:
 
         raopbridge_mod._raop_bridge = raop_bridge_factory()
         with mock.patch.object(raopbridge_mod._raop_bridge, 'generate_config') as mocked:
-            result = await cmd_config(command_context_factory(), ['raopbridge', 'config'])
+            result = await raopbridge_cmd(command_context_factory(), ['raopbridge', 'config'])
             assert mocked.called
         assert 'error' not in result
 
@@ -35,7 +35,7 @@ class TestPluginCommandHandlers:
 
         raopbridge_mod._raop_bridge = raop_bridge_factory()
         with mock.patch.object(raopbridge_mod._raop_bridge, 'deactivate_bridge') as mocked:
-            result = await cmd_config(command_context_factory(), ['raopbridge', 'deactivate'])
+            result = await raopbridge_cmd(command_context_factory(), ['raopbridge', 'deactivate'])
             assert mocked.called
         assert 'error' not in result
 
@@ -46,7 +46,7 @@ class TestPluginCommandHandlers:
         new_instance = raop_bridge_factory()
         with mock.patch('raopbridge.bridge.RaopBridge.from_settings', return_value=new_instance):
             with mock.patch.object(new_instance, 'start') as mocked:
-                result = await cmd_config(command_context_factory(), ['raopbridge', 'restart'])
+                result = await raopbridge_cmd(command_context_factory(), ['raopbridge', 'restart'])
                 assert mocked.called
         assert 'error' not in result
 
@@ -54,7 +54,7 @@ class TestPluginCommandHandlers:
     async def test_cmd_save(self, command_context_factory, raop_bridge_factory):
         raopbridge_mod._raop_bridge = raop_bridge_factory()
         with mock.patch('raopbridge.save_settings') as mocked:
-            result = await cmd_config(command_context_factory(), ['raopbridge', 'save'])
+            result = await raopbridge_cmd(command_context_factory(), ['raopbridge', 'save', 'bin=test'])
             assert mocked.called
         assert 'error' not in result
 
@@ -63,6 +63,6 @@ class TestPluginCommandHandlers:
         expected = 'test'
         raopbridge_mod._raop_bridge = raop_bridge_factory()
         with mock.patch('raopbridge.save_settings') as mocked:
-            await cmd_config(command_context_factory(), ['raopbridge', 'save', f'bin={expected}'])
+            await raopbridge_cmd(command_context_factory(), ['raopbridge', 'save', f'bin={expected}'])
             assert mocked.called
         assert raopbridge_mod._raop_bridge.bin == expected

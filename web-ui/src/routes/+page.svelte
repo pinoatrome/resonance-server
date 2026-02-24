@@ -30,6 +30,7 @@
     Loader2,
   } from "lucide-svelte";
   import { onMount } from "svelte";
+  import PluginPage from "$lib/components/raopbridge/PluginPage.svelte";
 
   // ---------------------------------------------------------------------------
   // Panel sizes (resizable)
@@ -566,7 +567,7 @@
       <!-- Library Browser -->
       <main class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <!-- Library Header (Breadcrumbs & Actions) -->
-        {#if uiStore.currentView !== "settings" && uiStore.currentView !== "playlists" && uiStore.currentView !== "radio"}
+        {#if uiStore.currentView !== "settings" && uiStore.currentView !== "playlists" && uiStore.currentView !== "radio" && uiStore.currentView !== "raopbridge"}
           <div
             class="flex items-center justify-between px-6 py-4 border-b border-border bg-base/50 backdrop-blur-sm z-10"
           >
@@ -925,6 +926,12 @@
             <PlaylistsView />
           {:else if uiStore.currentView === "radio"}
             <RadioView />
+          {:else if uiStore.currentView === "raopbridge"}
+            <PluginPage info={{
+                name: 'Plugin raopbridge',
+                version: '0.0.1',
+                description: 'Bridge squeeze2raop version: v1.8.5'
+            }}/>
           {:else if uiStore.currentView === "settings"}
             <SettingsPanel />
           {/if}

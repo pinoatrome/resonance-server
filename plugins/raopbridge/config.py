@@ -67,8 +67,7 @@ class RaopDevice:
 
 @dataclass(frozen=True, slots=True)
 class RaopConfig:
-
-    common: RaopCommonOptions
+    common: RaopCommonOptions | None = None
     interface: str = '?'
     slimproto_log: str = 'info'
     stream_log: str = 'warn'

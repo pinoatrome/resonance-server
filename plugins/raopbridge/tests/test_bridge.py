@@ -42,8 +42,8 @@ class TestBridge:
         assert actual == expected
 
     @pytest.mark.asyncio
-    async def test_start(self, raop_bridge_factory, popen_factory) -> None:
-        p = raop_bridge_factory()
+    async def test_start_active(self, raop_bridge_factory, popen_factory) -> None:
+        p = raop_bridge_factory(active_at_startup=True)
         with mock.patch('raopbridge.bridge.call_executable', return_value=popen_factory()) as mocked_exec:
             with mock.patch('raopbridge.bridge.check_valid_bin') as mocked_bin:
                 await p.start()
@@ -64,5 +64,56 @@ class TestBridge:
         p = raop_bridge_factory(started=True)
         await p.close()
         assert p.is_active is False
+
+    @pytest.mark.asyncio
+    async def test_save_device(self, raop_bridge_factory, raop_config_factory) -> None:
+        p = raop_bridge_factory()
+        raop_config = raop_config_factory()
+        device = raop_config.devices[0]
+        with mock.patch.object(p, 'save_config', return_value=raop_config) as mocked_write:
+            with mock.patch('raopbridge.bridge.read_squeeze2raop_config', return_value=raop_config) as mocked_read:
+                await p.save_device(device)
+                assert mocked_read.called
+            assert mocked_write.called
+
+    @pytest.mark.asyncio
+    async def test_save_device_new(self, raop_bridge_factory, raop_config_factory, raop_device_factory) -> None:
+        p = raop_bridge_factory()
+        raop_config = raop_config_factory()
+        device = raop_device_factory()
+        with mock.patch.object(p, 'save_config', return_value=raop_config) as mocked_write:
+            with mock.patch('raopbridge.bridge.read_squeeze2raop_config', return_value=raop_config) as mocked_read:
+                await p.save_device(device)
+                assert mocked_read.called
+            assert mocked_write.called
+
+    @pytest.mark.asyncio
+    async def test_remove_device(self, raop_bridge_factory, raop_config_factory, raop_device_factory) -> None:
+        p = raop_bridge_factory()
+        raop_config = raop_config_factory()
+        device = raop_config.devices[0]
+        with mock.patch.object(p, 'save_config', return_value=raop_config) as mocked_write:
+            with mock.patch('raopbridge.bridge.read_squeeze2raop_config', return_value=raop_config) as mocked_read:
+                await p.remove_device(device.udn)
+                assert mocked_read.called
+            assert mocked_write.called
+
+    def test_save_config_stale(self, tmp_path, raop_bridge_factory, raop_config_factory, raop_device_factory) -> None:
+        import tempfile
+        import time
+        with tempfile.NamedTemporaryFile(dir=tmp_path, suffix='.xml') as fp:
+            path = Path(fp.name)
+            p = raop_bridge_factory(data_dir=path.parent.name, config=path.name)
+            raop_config = raop_config_factory()
+            timestamp = time.time()
+            p.save_config(raop_config)  # config file modified after the timestamp of loading config
+            try:
+                with pytest.raises(ValueError):
+                    p.save_config(raop_config, timestamp=timestamp)
+            finally:
+                import os
+                os.remove(Path(p.data_dir) / p.config)
+                import shutil
+                shutil.rmtree(p.data_dir)
 
 

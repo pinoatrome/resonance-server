@@ -1,16 +1,91 @@
 <script lang="ts">
-    // Props
-    let { status }: { status: any } = $props();
-    function toggleStatus() {
-		console.log('toggle bridge status: ' + status?.plugin);
+	import { type PluginStatus } from '$lib/components/raopbridge/raopbridgeApi';
+	import {
+		ActivityIcon,
+		ShieldQuestionIcon,
+		TriangleAlertIcon
+	} from 'lucide-svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import ModalDlg from "./ModalDlg.svelte";
+	import Switch from "$lib/components/Switch.svelte";
+
+	// Props
+	let {status, onToggle}: { status: PluginStatus, onToggle: () => Promise<boolean> } = $props();
+
+	let bridgeActive = $derived<boolean>(status.bridge === 'active');
+	let toggleCommand = $state<'Activate' | 'Deactivate' | null>(null);
+	let isToggleInProgress = $state(false);
+	let bridgeStatus = $derived<'active' | 'inactive' | null>(status.bridge);
+
+	async function toggleStatus() { toggleCommand = bridgeStatus === 'active' ? 'Deactivate' : 'Activate'; }
+
+    async function cancelToggleStatus() { toggleCommand = null; }
+
+    async function confirmToggleStatus(): Promise<void> {
+		let error : Error | null = null;
+		try {
+			isToggleInProgress = true;
+			const result = await onToggle()
+			if (result) {
+				toastStore.success(`Command "${toggleCommand}" done`);
+			} else {
+				toastStore.warning(`Command "${toggleCommand}" failed - check the settings and logs for errors`)
+			}
+		} catch (err) {
+			error = err as Error;
+		}
+		if (!!error) {
+			const msg = `Failed to execute command: "${toggleCommand}"`;
+			toastStore.error(msg, { detail: error.message });
+		}
+		isToggleInProgress = false;
+		toggleCommand = null;
 	}
 </script>
-{#if status?.plugin==='running'}
-      <section> <button
-        class="p-2 rounded-lg hover:bg-surface-1 text-overlay-1 hover:text-error transition-colors"
-        onclick="{toggleStatus}"
-        disabled="{!status?.bridge}"
-      >{status?.bridge === 'active' ? 'Deactivate' : 'Activate'}</button>
-      </section>
+
+{#if !!toggleCommand}
+<ModalDlg
+	isOpen={!!toggleCommand}
+	inProgress={isToggleInProgress}
+	onCancel={cancelToggleStatus}
+	onConfirm={confirmToggleStatus}
+>
+<div class="flex flex-1 items-center justify-center text-lg">
+	{#if toggleCommand === 'Activate'}
+	<div class="flex">
+		<ShieldQuestionIcon class="text-success shrink-0" />
+		<div class="ml-3">Confirm Plugin Activation?</div>
+	</div>
+	{:else}
+	<div class="flex flex-col gap-3">
+		<div class="flex flex-row justify-center">
+			<TriangleAlertIcon class="text-error shrink-0" />
+			<div class="ml-3">Confirm Plugin Deactivation?</div>
+		</div>
+		<div class="text-sm">This will stop all active players managed via the plugin.</div>
+	</div>
+	{/if}
+</div>
+</ModalDlg>
+{/if}
+{#if status?.plugin === 'enabled'}
+<div class="flex flex-1">
+	<div class="p-3">
+	{#if bridgeStatus === 'active'}
+		<ActivityIcon class="text-success px-0 mx-2"/>
+	{:else}
+		<TriangleAlertIcon class="text-error px-0 mx-2"/>
+	{/if}
+	</div>
+	<div class="mt-1 ml-auto mr-3">
+		<Switch options={['Disabled', 'Active']}
+				classes="border px-4 py-2 mt-2 mb-0 mr-2 rounded-lg bg-surface-1 hover:bg-surface-0 text-lg text-overlay-1 hover:text-accent-hover transition-colors"
+				showValue={true}
+				bind:value={bridgeActive}
+				onToggle={toggleStatus}
+				disabled={!bridgeStatus || isToggleInProgress}
+		/>
+    </div>
+	</div>
 {/if}
 

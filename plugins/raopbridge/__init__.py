@@ -13,17 +13,20 @@ The plugin has its own preferences and reads the bridge configuration (stored in
 
 from __future__ import annotations
 
-import json
 import os
+import asyncio
+import dataclasses
 import logging
 
 from typing import Any
 from pathlib import Path
-from fastapi import APIRouter
+
+from fastapi import APIRouter, Request
 from resonance.plugin import PluginContext
 from resonance.web.handlers import CommandContext
 
 from .bridge import (RaopBridge, SETTINGS_FILE, default_settings, save_settings)
+from .config import RaopDevice
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ async def setup(ctx: PluginContext) -> None:
     logger.info(f'RaopBridge instance started (active: {_raop_bridge.is_active})')
 
     # 1) Register a JSON-RPC command
-    ctx.register_command("raopbridge", cmd_config)
+    ctx.register_command("raopbridge", raopbridge_cmd)
 
     # 2) Register a menu node on Jive devices
 
@@ -91,7 +94,7 @@ def define_api_router() -> APIRouter:
 
     @router.get("/status")
     async def get_status():
-        plugin_status = "running" if _raop_bridge else "stopped"
+        plugin_status = "enabled" if _raop_bridge else "disabled"
         bridge_status = "active" if _raop_bridge and _raop_bridge.is_active else "inactive"
         settings = _raop_bridge.settings if _raop_bridge else {}
         return {
@@ -100,24 +103,57 @@ def define_api_router() -> APIRouter:
             "settings": settings
         }
 
-    @router.get("/activate")
+    @router.patch("/settings")
+    async def do_patch_settings(request: Request):
+        if _raop_bridge:
+            body = await request.json()
+            settings = list(body.items())
+            return _do_save_settings(settings)
+
+    @router.get("/bin-options")
+    async def do_bin_options():
+        from .bridge import define_valid_bin
+        return define_valid_bin()
+
     @router.post("/activate")
     async def do_activate():
         if _raop_bridge:
-            _raop_bridge.activate_bridge()
-        return {"result": "done"}
+            return await _activate()
 
-    @router.get("/deactivate")
     @router.post("/deactivate")
     async def do_deactivate():
         if _raop_bridge:
-            _raop_bridge.deactivate_bridge()
-        return {"result": "done"}
+            return await _deactivate()
+
+    @router.get("/device")
+    async def do_devices():
+        if _raop_bridge:
+            return await _devices()
+
+    @router.put("/device/{udn}")
+    async def update_device(udn: str, request: Request):
+        if _raop_bridge:
+            body = await request.json()
+            assert body['udn'] == udn, 'Invalid data'
+            instance = _do_parse_device_data(body)
+            await _raop_bridge.save_device(instance)
+            return dataclasses.asdict(instance)
+
+    @router.delete("/device/{udn}")
+    async def delete_device(udn: str):
+        if _raop_bridge:
+            await _raop_bridge.remove_device(udn)
+            return None
 
     return router
 
 
-async def cmd_config(
+# ---------------------------------------------------------------------------
+# JSON-RPC command dispatcher
+# ---------------------------------------------------------------------------
+
+
+async def raopbridge_cmd(
     ctx: CommandContext, command: list[Any]
 ) -> dict[str, Any]:
     """Dispatch ``raopbridge <sub-command> …`` to the appropriate handler.
@@ -126,6 +162,7 @@ async def cmd_config(
     - ``activate`` — activate the plugin launching raop executable.
     - ``config``  — generate configuration file for the raop executable: the plugin must be de-activated.
     - ``deactivate``  — deactivate the plugin stopping the raop executable.
+    - ``devices``  — list of the devices detected by the plugin.
     - ``restart``  — restart the plugin using stored settings.
     - ``save``  — update and save current plugin settings.
     """
@@ -136,62 +173,53 @@ async def cmd_config(
 
     match sub:
         case 'activate':
-            return await _activate(ctx, command)
+            return await _activate()
         case 'config':
-            return await _raop_config(ctx, command)
+            return await _raop_config()
         case 'deactivate':
-            return await _deactivate(ctx, command)
+            return await _deactivate()
+        case 'devices':
+            return await _devices()
         case 'restart':
-            return await _restart(ctx, command)
+            return await _restart()
         case 'save':
-            return await _save_settings(ctx, command)
+            return await _save_settings(command[2:])
         case _:
             return {'error': f'Unknown raopbridge sub-command: {sub}'}
 
 
 # ---------------------------------------------------------------------------
-# JSON-RPC command dispatcher
+# Utility methods
 # ---------------------------------------------------------------------------
 
 
-async def _activate(
-    ctx: CommandContext, command: list[Any]
-) -> dict[str, Any]:
+async def _activate() -> dict[str, Any]:
     _raop_bridge.activate_bridge()
-
-    result: dict[str, Any] = {
+    await asyncio.sleep(2)  # give it a couple of seconds for bootstrap
+    return {
         'result':  _raop_bridge.is_active,
     }
-    return result
 
 
-async def _raop_config(
-    ctx: CommandContext, command: list[Any]
-) -> dict[str, Any]:
+async def _raop_config() -> dict[str, Any]:
     if _raop_bridge.is_active:
         return {
             'error': 'The bridge is active: deactivate it to generate a configuration file'
         }
-    result: dict[str, Any] = {
+    return {
         'result':  _raop_bridge.generate_config(),
     }
-    return result
 
 
-async def _deactivate(
-    ctx: CommandContext, command: list[Any]
-) -> dict[str, Any]:
+async def _deactivate() -> dict[str, Any]:
     _raop_bridge.deactivate_bridge()
-
-    result: dict[str, Any] = {
-        'result':  _raop_bridge.is_active,
+    await asyncio.sleep(2)  # give it a couple of seconds for terminate
+    return {
+        'result': not _raop_bridge.is_active,
     }
-    return result
 
 
-async def _restart(
-    ctx: CommandContext, command: list[Any]
-) -> dict[str, Any]:
+async def _restart() -> dict[str, Any]:
     """ use the stored settings to restart the plugin call ``save`` before to use the current settings"""
     global _raop_bridge
 
@@ -200,26 +228,40 @@ async def _restart(
     _raop_bridge = RaopBridge.from_settings(settings_path)
     await _raop_bridge.start()
 
-    result: dict[str, Any] = {
+    return {
         'active':  _raop_bridge.is_active,
     }
-    return result
 
 
-async def _save_settings(
-    ctx: CommandContext, command: list[Any]
-) -> dict[str, Any]:
-    """ the command argument is a list with first the plugin name and the command followed by
-        an arbitrary number of strings in the format key=value to update the settings
+async def _devices() -> dict[str, Any]:
+    return {
+        'devices': await _raop_bridge.parse_devices(),
+    }
+
+
+async def _save_settings(settings: list[str]) -> dict[str, Any]:
+    """ the settings argument is a list of strings in the format key=value to update the settings
     """
+    return _do_save_settings([tuple(setting.split('=', 1)) for setting in settings])
+
+
+def _do_parse_device_data(data, raise_exception=True) -> RaopDevice | None:
+    try:
+        return RaopDevice(**data)
+    except TypeError as e:
+        if raise_exception:
+            raise ValueError('invalid data') from e
+        return None
+
+
+def _do_save_settings(settings: list[tuple[str, ...]]) -> dict[str, Any]:
     errors = []
     valid_keys = _raop_bridge.settings.keys()
-    for value in command[2:]:
-        setting = value.split('=', 1)
+    for setting in settings:
         if setting[0] in valid_keys:
             setattr(_raop_bridge, setting[0], setting[1])
         else:
-            errors.append(f'Invalid setting name: \'{value}\'')
+            errors.append(f'Invalid setting name: \'{setting[0]}\'')
     if errors:
         return {
             'errors': ','.join(errors)
@@ -227,7 +269,6 @@ async def _save_settings(
     store_path = Path(_raop_bridge.data_dir) / SETTINGS_FILE
     save_settings(_raop_bridge.settings, store_path)
 
-    result: dict[str, Any] = {
+    return {
         'result':  True,
     }
-    return result

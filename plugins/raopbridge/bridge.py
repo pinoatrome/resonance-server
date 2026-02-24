@@ -7,11 +7,14 @@ from __future__ import annotations
 import os
 import subprocess
 import logging
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict
 
-from .config import RaopConfig
+from .config import (
+    RaopConfig, RaopDevice, dump_config
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +136,8 @@ def call_executable(*args, **kwargs):
 class RaopBridge:
     bin: str
     interface: str
-    data_dir: str
+    active_at_startup: bool = field(init=True, default=False)
     config: str = 'squeeze2raop.xml'
-    active_at_startup: bool = True
     auto_save: bool = True
     logging_enabled: bool = True
     debug_enabled: bool = False
@@ -143,8 +145,9 @@ class RaopBridge:
     debug_level: str = 'info'
     logging_file: str = 'squeeze2raop.log'
     pid_file: str = 'squeeze2raop.pid'
-    raop_config: RaopConfig | None = None
-    bridge_process: subprocess.Popen | None = None
+    data_dir: str = field(init=True, kw_only=True)
+    raop_config: RaopConfig | None = field(init=False, default=None, kw_only=True)
+    bridge_process: subprocess.Popen | None = field(init=False, default=None, kw_only=True)
 
     @classmethod
     def from_settings(cls, path: Path):
@@ -228,6 +231,18 @@ class RaopBridge:
             args += f' -x {config_path}'
         return args.split(' ')
 
+    def save_config(self, raop_config, timestamp=None):
+        config_path = Path(self.data_dir) / self.config
+        if timestamp is not None:
+            file_mod_time = os.stat(config_path).st_mtime
+            if timestamp < file_mod_time:
+                raise ValueError(f'configuration file modified: reload')
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = config_path.with_suffix(".tmp")
+        with open(tmp, 'w', encoding='utf-8') as configfile:
+            configfile.write(dump_config(raop_config))
+        tmp.replace(config_path)  # Atomic rename
+
     def generate_config(self) -> bool:
         logging.info(f'generating bridge config file {self.config}')
         args = self.build_bin_args(interactive=True)
@@ -236,7 +251,42 @@ class RaopBridge:
         return_value = identify_renderers(bin_path, args=args)
         return return_value == 0
 
+    async def parse_devices(self) -> list[RaopDevice] | None:
+        """the discovered devices are in the config"""
+        config_path = Path(self.data_dir) / self.config
+        raop_config = read_squeeze2raop_config(config_path)
+        return raop_config.devices
+
+    async def save_device(self, device: RaopDevice) -> None:
+        """add or updates the device in the bridge configuration file"""
+        config_path = Path(self.data_dir) / self.config
+        raop_config = read_squeeze2raop_config(config_path)
+        timestamp = time.time()
+        index = -1
+        for idx, item in enumerate(raop_config.devices):
+            if item.udn == device.udn:
+                index = idx
+                break
+        if index == -1:
+            raop_config.devices.append(device)
+        else:
+            raop_config.devices[index] = device
+        self.save_config(raop_config, timestamp=timestamp)
+
+    async def remove_device(self, udn):
+        config_path = Path(self.data_dir) / self.config
+        raop_config = read_squeeze2raop_config(config_path)
+        timestamp = time.time()
+        index = -1
+        for idx, item in enumerate(raop_config.devices):
+            if item.udn == udn:
+                index = idx
+                break
+        if index == -1:
+            raise ValueError(f'Device not found {udn}')
+        del raop_config.devices[index]
+        self.save_config(raop_config, timestamp=timestamp)
+
     async def close(self) -> None:
         self.deactivate_bridge()
         logger.debug('RaopBridge closed')
-
