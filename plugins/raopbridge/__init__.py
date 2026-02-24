@@ -13,11 +13,13 @@ The plugin has its own preferences and reads the bridge configuration (stored in
 
 from __future__ import annotations
 
+import json
 import os
 import logging
 
 from typing import Any
 from pathlib import Path
+from fastapi import APIRouter
 from resonance.plugin import PluginContext
 from resonance.web.handlers import CommandContext
 
@@ -51,32 +53,22 @@ async def setup(ctx: PluginContext) -> None:
         save_settings(default_settings(), path)
 
     _raop_bridge = RaopBridge.from_settings(path)
-    logger.info(f'Bridge instance loaded using settings from {path}')
+    logger.info(f'RaopBridge instance loaded using settings from {path}')
     await _raop_bridge.start()
+    logger.info(f'RaopBridge instance started (active: {_raop_bridge.is_active})')
 
     # 1) Register a JSON-RPC command
     ctx.register_command("raopbridge", cmd_config)
 
     # 2) Register a menu node on Jive devices
-    # ── Jive main-menu: "Airplay" node ───────────────────────────
-    # Weight 50 places it before "Favorites" (55).
-    ctx.register_menu_node(
-        node_id="AirPlayBridgePlugin",
-        parent="home",
-        text="AirPlay",
-        weight=50,
-        actions={
-            "go": {
-                "cmd": ["raop.reset"],
-                "params": {"menu": 1},
-            },
-        },
-    )
 
     # 3) Subscribe to events (tracked — auto-unsubscribed on teardown)
     # await ctx.subscribe("server.started", _on_server_started)
 
-    logger.info("AirPlay Bridge plugin setup complete")
+    # 4) REST
+    ctx.register_route(define_api_router())
+
+    logger.info("RaopBridge plugin setup complete")
 
 
 async def teardown(ctx: PluginContext) -> None:
@@ -91,6 +83,38 @@ async def teardown(ctx: PluginContext) -> None:
     if _raop_bridge:
         await _raop_bridge.close()
     _raop_bridge = None
+
+
+def define_api_router() -> APIRouter:
+
+    router = APIRouter(prefix='/api/raopbridge', tags=['raopbridge'])
+
+    @router.get("/status")
+    async def get_status():
+        plugin_status = "running" if _raop_bridge else "stopped"
+        bridge_status = "active" if _raop_bridge and _raop_bridge.is_active else "inactive"
+        settings = _raop_bridge.settings if _raop_bridge else {}
+        return {
+            "plugin": plugin_status,
+            "bridge": bridge_status,
+            "settings": settings
+        }
+
+    @router.get("/activate")
+    @router.post("/activate")
+    async def do_activate():
+        if _raop_bridge:
+            _raop_bridge.activate_bridge()
+        return {"result": "done"}
+
+    @router.get("/deactivate")
+    @router.post("/deactivate")
+    async def do_deactivate():
+        if _raop_bridge:
+            _raop_bridge.deactivate_bridge()
+        return {"result": "done"}
+
+    return router
 
 
 async def cmd_config(

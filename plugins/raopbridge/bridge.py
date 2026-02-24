@@ -116,7 +116,8 @@ def identify_renderers(executable: Path, args: [str] = None, config_path: Path =
         process_args += args
     command = f'save {config_path}\nexit\n'.encode('utf-8')
     try:
-        value = subprocess.run(process_args, input=command, timeout=timeout or 30, stdout=-1, check=False).stdout
+        value = subprocess.run(process_args, input=command, timeout=timeout or 30, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, check=False).stdout
         logger.debug(f'{executable} returned {value}')
         return int.from_bytes(value)
     except subprocess.TimeoutExpired as e:
@@ -165,7 +166,7 @@ class RaopBridge:
     @property
     def is_active(self):
         """ the plugin is active when the bridge executable is running """
-        return bool(self.bridge_process)
+        return self.bridge_process.poll() is None if self.bridge_process else False
 
     async def start(self) -> None:
         """ load the plugin preferences and the bridge configuration
@@ -180,21 +181,25 @@ class RaopBridge:
         check_valid_bin(bin_path)
         config_path = Path(self.data_dir) / self.config
         if config_path.is_file():
-            logger.info(f'bridge executable using config from {config_path}')
+            logger.debug(f'bridge executable using config from {config_path}')
         else:
             logger.info(f'no raop config file: the bridge will create it (if autosave is enabled) in {config_path}')
         if self.active_at_startup:
             self.activate_bridge()
+        logger.debug('RaopBridge started')
 
     def activate_bridge(self) -> None:
-        if self.bridge_process:
+        if self.is_active:
             logger.warning(f'bridge is already active')
             return
+        if self.bridge_process:
+            logger.warning(f'activate_bridge: kill dead bridge with return code: {self.bridge_process.returncode}')
+            self.deactivate_bridge()
         bin_path = build_path_bin(self.bin)
         args = self.build_bin_args()
-        logger.info(f'starting {bin_path} {" ".join(args)}')
+        logger.debug(f'starting {bin_path} {" ".join(args)}')
         self.bridge_process = call_executable(executable=bin_path, args=args, shell=True)
-        logger.info('RaopBridge started')
+        logger.debug('bridge process started')
 
     def deactivate_bridge(self) -> None:
         if self.bridge_process:
@@ -233,5 +238,5 @@ class RaopBridge:
 
     async def close(self) -> None:
         self.deactivate_bridge()
-        logger.info('RaopBridge closed')
+        logger.debug('RaopBridge closed')
 
