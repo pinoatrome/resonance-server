@@ -15,6 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.requires_community_plugins
+
 from resonance.ui import Page
 
 # ---------------------------------------------------------------------------
@@ -28,13 +30,14 @@ _RAOPBRIDGE_PKG_DIR = (
     / "raopbridge"
 )
 
-# Ensure the raopbridge package directory is importable
-_parent = str(_RAOPBRIDGE_PKG_DIR.parent)
-if _parent not in sys.path:
-    sys.path.insert(0, _parent)
+if _RAOPBRIDGE_PKG_DIR.is_dir():
+    # Ensure the raopbridge package directory is importable
+    _parent = str(_RAOPBRIDGE_PKG_DIR.parent)
+    if _parent not in sys.path:
+        sys.path.insert(0, _parent)
 
-import raopbridge as raopbridge_mod  # noqa: E402
-from raopbridge.config import RaopCommonOptions, RaopDevice  # noqa: E402
+    import raopbridge as raopbridge_mod  # noqa: E402
+    from raopbridge.config import RaopCommonOptions, RaopDevice  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers / Fixtures

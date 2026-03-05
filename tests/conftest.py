@@ -5,6 +5,7 @@ Custom markers
 --------------
 - ``@pytest.mark.requires_pil``   – test needs Pillow (PIL) installed
 - ``@pytest.mark.requires_tools`` – test needs external audio tools (flac, lame, sox, faad)
+- ``@pytest.mark.requires_community_plugins`` – test needs community plugins (raopbridge)
 
 Usage examples::
 
@@ -53,9 +54,13 @@ def _tool_available(name: str) -> bool:
     return False
 
 
+def _community_plugins_available() -> bool:
+    return False  # [TODO]
+
+
 HAS_PIL = _pil_available()
 HAS_TOOLS = all(_tool_available(t) for t in ("flac", "lame", "sox"))
-
+HAS_COMMUNITY_PLUGINS = _community_plugins_available()
 
 # ---------------------------------------------------------------------------
 # Register markers so ``pytest --strict-markers`` doesn't complain
@@ -70,6 +75,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "requires_tools: mark test as requiring external audio tools — flac, lame, sox "
         "(auto-skipped if unavailable)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "requires_community_plugins: mark test as requiring community plugins (auto-skipped if unavailable)",
     )
 
 
@@ -87,9 +96,12 @@ def pytest_collection_modifyitems(
     skip_tools = pytest.mark.skip(
         reason="External audio tools (flac/lame/sox) not found on PATH",
     )
+    skip_community_plugins = pytest.mark.skip(reason="Community plugins not installed")
 
     for item in items:
         if "requires_pil" in item.keywords and not HAS_PIL:
             item.add_marker(skip_pil)
         if "requires_tools" in item.keywords and not HAS_TOOLS:
             item.add_marker(skip_tools)
+        if "requires_community_plugins" in item.keywords and not HAS_COMMUNITY_PLUGINS:
+            item.add_marker(skip_community_plugins)

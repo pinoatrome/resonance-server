@@ -606,6 +606,7 @@ be **auto-skipped** when the dependency is missing — no failures, just skips.
 | ----------------------------- | ----------------------------- | ---------------------------------------------------- |
 | `@pytest.mark.requires_pil`   | Pillow (PIL)                  | `pip install -e ".[blurhash]"`                       |
 | `@pytest.mark.requires_tools` | `flac`, `lame`, `sox` on PATH | See [Transcoding Tools](#transcoding-tools-optional) |
+| `@pytest.mark.requires_community_plugins` | `raopbridge` installed        | [TODO]                       |
 
 ```bash
 # Run only tests that need no optional dependencies
