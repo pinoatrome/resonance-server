@@ -1,0 +1,9 @@
+[plugin]
+name = "raopbridge"
+version = "0.0.1"
+description = "Bridge squeeze2raop version: v1.8.5"
+author = "Pinoatrome"
+min_resonance_version = "0.0.1"
+category = "tools"
+icon = "radar"
+
